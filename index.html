@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dove misero radici i ricordi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-align: center;
+            margin: 40px 0 60px 0;
+            text-transform: lowercase;
+            opacity: 0.9;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+        .form-section {
+            border-bottom: 1px solid #333;
+            padding-bottom: 40px;
+        }
+        textarea {
+            width: 100%;
+            background: transparent;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 15px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 100px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        textarea:focus { border-color: #666; }
+        textarea::placeholder { color: #444; }
+        button {
+            width: 100%;
+            background: transparent;
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 15px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+            text-transform: lowercase;
+        }
+        button:hover:not(:disabled) {
+            background: #fff;
+            color: #000;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .dediche-list {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .dedica {
+            border-left: 1px solid #333;
+            padding-left: 20px;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .dedica-text {
+            font-size: 1rem;
+            line-height: 1.6;
+            font-weight: 300;
+            word-wrap: break-word;
+        }
+        .dedica-date {
+            font-size: 0.7rem;
+            color: #444;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
+        .empty-state, .loading {
+            text-align: center;
+            color: #444;
+            font-size: 0.9rem;
+            padding: 40px 0;
+        }
+        .error {
+            text-align: center;
+            color: #666;
+            font-size: 0.8rem;
+            padding: 20px;
+            border: 1px solid #333;
+            margin-top: 20px;
+        }
+        @media (max-width: 480px) {
+            h1 { font-size: 1rem; margin: 30px 0 40px 0; }
+            .container { gap: 30px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>dove misero radici i ricordi</h1>
+    
+    <div class="container">
+        <div class="form-section">
+            <textarea id="dedicaInput" placeholder="lascia qui la tua dedica..."></textarea>
+            <button id="submitBtn" onclick="aggiungiDedica()">pubblica</button>
+            <div id="errorMsg" class="error" style="display: none;"></div>
+        </div>
+        
+        <div id="dedicheContainer" class="dediche-list">
+            <div class="loading">caricamento dediche...</div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAZIONE JSONBin.io
+        // 1. Vai su https://jsonbin.io e registrati (gratis)
+        // 2. Crea un nuovo bin vuoto: []
+        // 3. Copia l'ID del bin (es: "65a1b2c3d4e5f6g7h8i9j0k1")
+        // 4. Vai in "API Keys" e copia la tua Master Key
+        const BIN_ID = '699b908b43b1c97be994cd6b'; // <-- SOSTITUISCI QUI
+        const API_KEY = '$2a$10$ywebSKuTYHxoJAYGZ373yO8wwOgrFb2f/BvObUEydCqf6XcvSQNk6'; // <-- SOSTITUISCI QUI
+        
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+        
+        // Carica dediche all'avvio
+        async function caricaDediche() {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: { 'X-Master-Key': API_KEY }
+                });
+                const data = await response.json();
+                mostraDediche(data.record || []);
+            } catch (error) {
+                console.error('Errore:', error);
+                document.getElementById('dedicheContainer').innerHTML = 
+                    '<div class="error">errore di connessione. riprova più tardi.</div>';
+            }
+        }
+        
+        // Mostra dediche
+        function mostraDediche(dediche) {
+            const container = document.getElementById('dedicheContainer');
+            container.innerHTML = '';
+            
+            if (dediche.length === 0) {
+                container.innerHTML = '<div class="empty-state">nessuna dedica ancora. sii il primo.</div>';
+                return;
+            }
+            
+            // Ordina per data decrescente
+            dediche.sort((a, b) => new Date(b.data) - new Date(a.data));
+            
+            dediche.forEach(dedica => {
+                const div = document.createElement('div');
+                div.className = 'dedica';
+                div.innerHTML = `
+                    <div class="dedica-text">${escapeHtml(dedica.testo)}</div>
+                    <div class="dedica-date">${formattaData(new Date(dedica.data))}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        // Aggiungi dedica
+        async function aggiungiDedica() {
+            const input = document.getElementById('dedicaInput');
+            const btn = document.getElementById('submitBtn');
+            const errorDiv = document.getElementById('errorMsg');
+            const testo = input.value.trim();
+            
+            if (!testo) return;
+            
+            btn.disabled = true;
+            btn.textContent = 'pubblicazione...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                // Recupera dediche esistenti
+                const response = await fetch(API_URL, {
+                    headers: { 'X-Master-Key': API_KEY }
+                });
+                const data = await response.json();
+                let dediche = data.record || [];
+                
+                // Aggiungi nuova dedica
+                const nuovaDedica = {
+                    testo: testo,
+                    data: new Date().toISOString()
+                };
+                dediche.push(nuovaDedica);
+                
+                // Salva tutto
+                await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(dediche)
+                });
+                
+                input.value = '';
+                mostraDediche(dediche);
+                
+            } catch (error) {
+                console.error('Errore:', error);
+                errorDiv.textContent = 'errore durante la pubblicazione. riprova.';
+                errorDiv.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'pubblica';
+            }
+        }
+        
+        // Utility
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formattaData(data) {
+            return data.toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // Invio con Enter
+        document.getElementById('dedicaInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                aggiungiDedica();
+            }
+        });
+        
+        // Carica all'avvio
+        caricaDediche();
+        
+        // Aggiorna ogni 10 secondi
+        setInterval(caricaDediche, 10000);
+    </script>
+</body>
+</html>
